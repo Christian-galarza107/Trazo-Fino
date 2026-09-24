@@ -11,8 +11,8 @@
 // =====================================================================
 
 export const CONFIG = Object.freeze({
-  SUPABASE_URL: 'https://TU-PROYECTO.supabase.co',
-  SUPABASE_ANON_KEY: 'PEGAR-ACA-LA-ANON-PUBLIC-KEY',
+  SUPABASE_URL: 'https://sgarjinqmiiwznckcjgm.supabase.co',
+SUPABASE_ANON_KEY: 'sb_publishable_Jintwv38ATSDlwXq0J82Ag_Jgh8b...(el resto de la clave)',
 
   // Opcional: protección anti-bots en el login con Cloudflare Turnstile.
   // Dejar vacío para no usarla. Ver README, paso 6.
