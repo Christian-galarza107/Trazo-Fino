@@ -1,0 +1,2 @@
+@supabase/supabase-js 2.117.1
+sha384-K1nraABOP/zFehpLIUksXebbs7jMpB8gYMlb+uhVKZcWT/9Vkq1+qhv6ndC+1Yuz
