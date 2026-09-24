@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  Política de Seguridad de Contenido: el navegador solo ejecuta scripts del propio
+  sitio (nada en línea, nada de terceros salvo el anti-bots opcional de Cloudflare)
+  y solo se conecta con Supabase. Es la barrera principal contra XSS.
+-->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'none'; form-action 'self'; upgrade-insecure-requests">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Trazo Fino · Gestión</title>
+<link rel="icon" type="image/png" href="assets/logo.png">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<!-- Configuración pendiente -->
+<section id="setup" class="gate" hidden>
+  <div class="gate-card">
+    <img src="assets/logo.png" alt="Trazo Fino" class="gate-logo">
+    <h1>Falta conectar la base de datos</h1>
+    <p>Abrí <code>js/config.js</code> y completá la URL y la clave pública de Supabase. Los pasos están en el archivo <code>README.md</code>.</p>
+  </div>
+</section>
+
+<!-- Inicio de sesión -->
+<section id="login" class="gate" hidden>
+  <form id="loginForm" class="gate-card" novalidate autocomplete="on">
+    <img src="assets/logo.png" alt="" class="gate-logo">
+    <h1>Trazo Fino</h1>
+    <p class="mute">Línea de módulos en seco · acceso de socios</p>
+    <label class="f" for="loginEmail"><span>Email</span>
+      <input id="loginEmail" type="email" autocomplete="username" required maxlength="254" inputmode="email"></label>
+    <label class="f" for="loginPass"><span>Contraseña</span>
+      <input id="loginPass" type="password" autocomplete="current-password" required maxlength="72"></label>
+    <div id="captcha"></div>
+    <p id="loginError" class="merror" role="alert"></p>
+    <button id="loginBtn" type="submit" class="btn primary full">Ingresar</button>
+    <p class="hint center">Sitio privado. Los accesos quedan registrados.</p>
+  </form>
+</section>
+
+<!-- Aplicación -->
+<div id="app" hidden>
+  <aside id="rail">
+    <div id="brand">
+      <div class="mark">
+        <div class="logo"><img src="assets/logo.png" alt=""></div>
+        <div><h1 id="brandName">Trazo Fino</h1><div class="sub">Línea de módulos en seco</div></div>
+      </div>
+    </div>
+    <nav id="nav" aria-label="Secciones"></nav>
+    <footer>
+      <div class="sync"><span id="syncDot" class="ok"></span><span id="syncTxt">Sincronizado</span></div>
+      <div id="quien" class="quien"></div>
+      <div class="cuenta">
+        <button type="button" class="linkbtn" data-action="password">Cambiar contraseña</button>
+        <button type="button" class="linkbtn" data-action="salir">Salir</button>
+      </div>
+      <div class="copy">© <span id="anio"></span> Trazo Fino</div>
+    </footer>
+  </aside>
+  <button type="button" id="menuBtn" data-action="menu" aria-label="Menú">Menú</button>
+  <main id="view"></main>
+</div>
+
+<div id="veil"><div id="modal" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="print" aria-hidden="true"></div>
+
+<script src="js/vendor/supabase.js" integrity="sha384-K1nraABOP/zFehpLIUksXebbs7jMpB8gYMlb+uhVKZcWT/9Vkq1+qhv6ndC+1Yuz"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
