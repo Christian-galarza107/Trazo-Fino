@@ -11,6 +11,8 @@ import { toast, enviarFormulario, cerrarModal, formulario } from './ui.js';
 import * as C from './views-comercial.js';
 import * as P from './views-produccion.js';
 import * as F from './views-finanzas.js';
+import * as I from './views-ingenieria.js';
+import * as K from './views-catalogo.js';
 import * as E from './engine.js';
 
 // Anti-clickjacking: el sitio no se deja mostrar dentro de un iframe ajeno.
@@ -20,11 +22,18 @@ const $ = s => document.querySelector(s);
 
 const VISTAS = [
   { id: 'panel', g: 'General', l: 'Panel', v: C.vPanel },
+  { id: 'lineas', g: 'General', l: 'Análisis por línea', v: K.vLineas },
   { id: 'leads', g: 'Comercial', l: 'Leads', v: C.vLeads, n: () => S.datos.leads.filter(E.ACTIVO).length },
   { id: 'cotizador', g: 'Comercial', l: 'Cotizador', v: C.vCotizador },
   { id: 'cotizaciones', g: 'Comercial', l: 'Cotizaciones', v: C.vCotizaciones, n: () => S.datos.cotizaciones.filter(c => c.estado === 'Enviada').length },
-  { id: 'computo', g: 'Producto', l: 'Cómputo métrico', v: P.vComputo },
+  { id: 'catalogo', g: 'Producto', l: 'Catálogo de productos', v: K.vCatalogo },
   { id: 'gamas', g: 'Producto', l: 'Gamas y adicionales', v: P.vGamas },
+  { id: 'computo', g: 'Producto', l: 'Cómputo 1.0 (histórico)', v: P.vComputo },
+  { id: 'materiales', g: 'Ingeniería de costos', l: 'Catálogo de materiales', v: I.vMateriales, n: () => S.datos.insumos.filter(i => i.costo === null).length },
+  { id: 'bom', g: 'Ingeniería de costos', l: 'BOM por modelo', v: I.vBom, n: () => (S.datos.boms || []).filter(b => b.estado === 'Pendiente de validación').length, alerta: true },
+  { id: 'presupuestos', g: 'Ingeniería de costos', l: 'Presupuestos por proyecto', v: I.vPresupuestos, n: () => (S.datos.presupuestos || []).filter(p => p.estado === 'Borrador').length },
+  { id: 'comparador', g: 'Ingeniería de costos', l: 'Comparador de costos', v: I.vComparador, n: () => (S.datos.sustituciones || []).filter(s => s.estado === 'Propuesta').length },
+  { id: 'precios', g: 'Ingeniería de costos', l: 'Historial de precios', v: I.vPrecios },
   { id: 'stock', g: 'Abastecimiento', l: 'Stock', v: P.vStock, n: () => S.datos.insumos.filter(E.stockBajo).length, alerta: true },
   { id: 'compras', g: 'Abastecimiento', l: 'Órdenes de compra', v: P.vCompras, n: () => S.datos.ocs.filter(o => ['Borrador', 'Enviada'].includes(o.estado)).length },
   { id: 'proveedores', g: 'Abastecimiento', l: 'Proveedores', v: P.vProveedores },
@@ -99,7 +108,7 @@ function setEstado(tipo, txt) {
 //  Acciones globales
 // ---------------------------------------------------------------------
 const acciones = {
-  ...C.acciones, ...P.acciones, ...F.acciones,
+  ...C.acciones, ...P.acciones, ...F.acciones, ...I.acciones, ...K.acciones,
   'ir': d => ir(d.v),
   'modal-cerrar': () => cerrarModal(),
   'menu': () => document.body.classList.toggle('menu-on'),
@@ -116,7 +125,7 @@ const acciones = {
   }, 'Cambiar')
 };
 
-const cambios = { ...C.cambios };
+const cambios = { ...C.cambios, ...I.cambios, ...K.cambios };
 
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-action]');

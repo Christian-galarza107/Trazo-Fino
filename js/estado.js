@@ -9,7 +9,11 @@ export const S = {
   ocAbierta: null,
   fabAbierta: null,
   auditoria: null,
-  Q: { chasis: 'S', gama: 'Premium', addons: [], cliente: '', lead: '' }
+  Q: { chasis: 'S', gama: 'Premium', addons: [], cliente: '', lead: '' },   // cotizador 1.0 (histórico)
+  // Trazo Fino 2.0
+  Q2: { tecnologia: '', tamano: '', gama: '', addons: [], cliente: '', lead: '', presupuesto: '', vigencia: 15, idem: null },
+  ing: { producto: '', bom: '', presupuesto: '', buscar: '', categoria: '', comparar: '', tec: '', tam: '', gama: '' },
+  filtros: { tec: '', tam: '', gama: '', origen: '', estado: '', desde: '', hasta: '', ubicacion: '' }
 };
 
 // Ganchos que completa app.js (evita dependencias circulares).

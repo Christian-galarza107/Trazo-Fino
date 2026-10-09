@@ -18,7 +18,9 @@ const conError = fn => async d => { try { await fn(d); } catch (e) { toast(db.me
 const camposVenta = () => [
   { k: 'cliente', l: 'Cliente', req: true, max: 80 },
   { k: 'fecha', l: 'Fecha', t: 'date', req: true },
-  { k: 'chasis', l: 'Chasis', t: 'select', opts: ['S', 'M'] },
+  { k: 'producto_id', l: 'Modelo 2.0', t: 'select', ancho: true, opts: [['', '— Sin modelo (registro 1.0) —'], ...(S.datos.productos || []).map(p => [p.id, p.codigo])],
+    ayuda: 'Con un modelo, el servidor completa tecnología, tamaño, gama y superficie. Lo recomendable es convertir la cotización.' },
+  { k: 'chasis', l: 'Chasis / tamaño', t: 'select', opts: ['S', 'M'] },
   { k: 'gama', l: 'Gama', t: 'select', opts: S.datos.gamas.map(g => g.nombre) },
   { k: 'pvp', l: 'PVP acordado (USD)', t: 'number', req: true, min: 1, maxN: 10000000, step: '0.01' },
   { k: 'costo_real', l: 'Costo directo real (USD, al cierre)', t: 'number', min: 0, step: '0.01', ayuda: 'Dejalo vacío mientras la obra esté en curso.' },
@@ -31,24 +33,25 @@ export function vVentas() {
   const t = k => vs.reduce((a, v) => a + (Number(v[k]) || 0), 0);
   const gan = t('ganancia'), control = Math.round((t('reserva') + t('div_a') + t('div_b') - gan) * 100) / 100;
   return html`
-    ${head('Ventas y dividendos', 'Reparto calculado por el servidor. Usa el costo real cuando está cargado; mientras tanto, el presupuestado.',
+    ${head('Ventas y dividendos', 'Reparto calculado por el servidor. Usa el costo real cuando está cargado; mientras tanto, el presupuestado. El margen es societario y antes de impuestos y gastos indirectos, que el sistema no modela.',
       html`<button class="btn primary" data-action="venta-nueva">Registrar venta</button>`)}
     ${vs.length ? (control === 0
       ? html`<div class="okbox">Reparto consistente: fondo de reserva + dividendos = ganancia neta (diferencia ${usd2(0)}).</div>`
       : html`<div class="warnbox">El reparto no cierra por ${usd2(Math.abs(control))}.</div>`) : ''}
     <div class="panel"><div class="body tight">
       ${vs.length ? html`<div class="scroll"><table>
-        <thead><tr><th>N.º</th><th>Fecha</th><th>Cliente</th><th>Módulo</th><th class="num">PVP</th><th class="num">Costo real</th><th class="num">Desvío</th>
-          <th class="num">Ganancia</th><th class="num">Reserva</th><th class="num">${nombreSocio('A')}</th><th class="num">${nombreSocio('B')}</th><th>Cobro</th><th></th></tr></thead>
+        <thead><tr><th>N.º</th><th>Fecha</th><th>Cliente</th><th>Módulo</th><th class="num">PVP</th><th class="num">Costo presup.</th><th class="num">Costo real</th><th class="num">Desvío</th>
+          <th class="num">Margen</th><th class="num">Reserva</th><th class="num">${nombreSocio('A')}</th><th class="num">${nombreSocio('B')}</th><th>Cobro</th><th></th></tr></thead>
         <tbody>${vs.map(v => html`<tr>
-          <td>${v.numero}</td><td>${fecha(v.fecha)}</td><td>${v.cliente}</td><td>${v.chasis} · ${v.gama}</td><td class="num">${usd(v.pvp)}</td>
+          <td>${v.numero}</td><td>${fecha(v.fecha)}</td><td>${v.cliente}</td>
+          <td>${v.producto_codigo || html`${v.chasis} · ${v.gama}${v.generacion === '1.0' ? html` ${pill('1.0', 'p-neutral')}` : ''}`}</td><td class="num">${usd(v.pvp)}</td><td class="num">${usd(v.cd_pres)}</td>
           <td class="num">${v.costo_real === null ? html`<span class="mute">pendiente</span>` : usd(v.costo_real)}</td>
-          <td class="num">${v.desvio === null ? '—' : pill((Number(v.desvio) > 0 ? '+' : '') + usd(v.desvio), Number(v.desvio) > 0 ? 'p-bad' : 'p-ok')}</td>
+          <td class="num">${v.desvio === null ? '—' : html`${pill((Number(v.desvio) > 0 ? '+' : '') + usd(v.desvio), Number(v.desvio) > 0 ? 'p-bad' : 'p-ok')}${v.desvio_pct !== null && v.desvio_pct !== undefined ? html`<br><span class="small mute">${pct(v.desvio_pct)}</span>` : ''}`}</td>
           <td class="num">${usd(v.ganancia)}</td><td class="num">${usd(v.reserva)}</td><td class="num">${usd(v.div_a)}</td><td class="num">${usd(v.div_b)}</td>
           <td>${pill(v.estado_cobro, v.estado_cobro === 'Cobrado' ? 'p-ok' : v.estado_cobro === 'Vencido' ? 'p-bad' : 'p-warn')}</td>
           <td class="num nowrap"><button class="btn sm" data-action="venta-editar" data-id="${v.id}">Editar</button>
             <button class="btn sm ghost" data-action="venta-borrar" data-id="${v.id}">Borrar</button></td></tr>`)}</tbody>
-        <tfoot><tr><td colspan="4">Totales · ${vs.length} venta${vs.length === 1 ? '' : 's'}</td><td class="num">${usd(t('pvp'))}</td><td></td><td></td>
+        <tfoot><tr><td colspan="4">Totales · ${vs.length} venta${vs.length === 1 ? '' : 's'}</td><td class="num">${usd(t('pvp'))}</td><td class="num">${usd(t('cd_pres'))}</td><td></td><td></td>
           <td class="num">${usd(gan)}</td><td class="num">${usd(t('reserva'))}</td><td class="num">${usd(t('div_a'))}</td><td class="num">${usd(t('div_b'))}</td><td colspan="2"></td></tr></tfoot>
       </table></div>` : vacio('Sin ventas', 'Registrá la primera o convertí una cotización.')}
     </div></div>`;
@@ -107,9 +110,9 @@ export function vReglas() {
       html`<button class="btn primary" data-action="reglas-editar">Modificar reglas</button>`)}
     ${E.paramsCierran(p) ? html`<div class="okbox">Los componentes suman ${pct(suma)}. El PVP cierra contra la suma de sus partes.</div>` : ''}
     <div class="panel"><h3>Composición del precio de venta</h3><div class="body tight"><table><tbody>
-      ${fila('p_costo', 'Costo directo')}${fila('p_hon', 'Honorarios de arquitectura')}${fila('p_mkt', 'Presupuesto digital y comercial')}${fila('p_margen', 'Ganancia neta de la sociedad')}
+      ${fila('p_costo', 'Costo directo')}${fila('p_hon', 'Honorarios de arquitectura')}${fila('p_mkt', 'Presupuesto comercial y marketing')}${fila('p_margen', 'Margen societario objetivo')}
     </tbody><tfoot><tr><td>Suma</td><td class="num">${pct(suma)}</td><td colspan="2"></td></tr></tfoot></table></div></div>
-    <div class="panel"><h3>Reparto de la ganancia neta</h3><div class="body tight"><table><tbody>
+    <div class="panel"><h3>Reparto del margen societario</h3><div class="body tight"><table><tbody>
       <tr><td>Fondo de reserva operativo (no distribuible)</td><td class="num"><b>${pct(p.p_reserva)}</b></td></tr>
       <tr><td>Masa de dividendos</td><td class="num">${pct(1 - p.p_reserva)}</td></tr>
       <tr class="sub"><td>${nombreSocio('A')}</td><td class="num">${pct(p.p_div_socio)} de la masa</td></tr>
@@ -122,7 +125,10 @@ export function vReglas() {
 //  AUDITORÍA
 // ---------------------------------------------------------------------
 const TABLAS_ES = { params: 'Reglas de precio', gamas: 'Gamas', addons: 'Adicionales', insumos: 'Insumos', ventas: 'Ventas', cotizaciones: 'Cotizaciones',
-  gastos: 'Gastos', ordenes_compra: 'Órdenes de compra', fabricacion: 'Fabricación', proveedores: 'Proveedores', operarios: 'Operarios' };
+  gastos: 'Gastos', ordenes_compra: 'Órdenes de compra', fabricacion: 'Fabricación', proveedores: 'Proveedores', operarios: 'Operarios',
+  tipos_cambio: 'Tipos de cambio', productos: 'Productos 2.0', addon_costos: 'Adicionales 2.0', boms: 'BOM', bom_items: 'Ítems de BOM',
+  sustituciones: 'Sustituciones', presupuestos: 'Presupuestos', presupuesto_items: 'Partidas de presupuesto', lead_intereses: 'Intereses de leads',
+  leads: 'Leads', oc_items: 'Ítems de compra', horas: 'Horas' };
 const ACC_ES = { INSERT: 'Alta', UPDATE: 'Modificación', DELETE: 'Baja' };
 
 export function vAuditoria() {
@@ -140,7 +146,7 @@ export function vAuditoria() {
 }
 function resumen(r) {
   const d = r.datos || {};
-  return String(d.cliente || d.concepto || d.descripcion || d.nombre || d.codigo || r.registro || '').slice(0, 80);
+  return String(d.cliente || d.concepto || d.descripcion || d.nombre || d.codigo || d.insumo_codigo || d.motivo || r.registro || '').slice(0, 80);
 }
 
 // ---------------------------------------------------------------------
@@ -148,13 +154,17 @@ function resumen(r) {
 // ---------------------------------------------------------------------
 export function vExportar() {
   return html`
-    ${head('Exportar datos', 'Copias para Excel o para archivo. Supabase además guarda respaldos automáticos de la base.')}
+    ${head('Exportar datos', 'Copias para Excel o para archivo. Guardalas fuera de Supabase con regularidad: el plan gratuito no garantiza respaldos automáticos de la base.')}
     <div class="panel"><h3>Planillas (CSV para Excel)</h3><div class="body"><div class="actions">
       <button class="btn" data-action="csv" data-t="leads">Leads</button>
       <button class="btn" data-action="csv" data-t="ventas">Ventas y dividendos</button>
       <button class="btn" data-action="csv" data-t="insumos">Cómputo y stock</button>
       <button class="btn" data-action="csv" data-t="gastos">Gastos</button>
       <button class="btn" data-action="csv" data-t="horas">Horas de taller</button>
+      <button class="btn" data-action="csv" data-t="productos">Catálogo 2.0</button>
+      <button class="btn" data-action="csv" data-t="bom">BOM por modelo</button>
+      <button class="btn" data-action="csv" data-t="presupuestos">Presupuestos</button>
+      <button class="btn" data-action="csv" data-t="precios">Historial de precios</button>
     </div></div></div>
     <div class="panel"><h3>Copia completa</h3><div class="body">
       <p class="nomargin">Un archivo JSON con todos los datos visibles del sistema, para archivo.</p>
@@ -184,12 +194,22 @@ function csv(nombre, cab, filas) {
 const EXPORTES = {
   leads: () => csv(`leads_${hoyISO()}.csv`, ['Fecha', 'Nombre', 'Teléfono', 'Email', 'Terreno', 'Ubicación', 'Gama', 'Origen', 'Estado', 'Último contacto', 'Próximo seguimiento', 'Score', 'Notas'],
     S.datos.leads.map(l => [l.fecha, l.nombre, l.telefono, l.email, l.terreno ? 'Sí' : 'No', l.ubicacion, l.gama, l.origen, l.estado, l.ult_contacto, l.proximo_contacto, E.scoreLead(l), l.notas])),
-  ventas: () => csv(`ventas_${hoyISO()}.csv`, ['N.º', 'Fecha', 'Cliente', 'Chasis', 'Gama', 'PVP', 'Costo presupuestado', 'Costo real', 'Desvío', 'Honorarios', 'Marketing', 'Ganancia', 'Reserva', 'Div. ' + nombreSocio('A'), 'Div. ' + nombreSocio('B'), 'Cobro'],
-    S.datos.ventas.map(v => [v.numero, v.fecha, v.cliente, v.chasis, v.gama, v.pvp, v.cd_pres, v.costo_real, v.desvio, v.hon, v.mkt, v.ganancia, v.reserva, v.div_a, v.div_b, v.estado_cobro])),
+  ventas: () => csv(`ventas_${hoyISO()}.csv`, ['N.º', 'Fecha', 'Cliente', 'Generación', 'Modelo', 'Tecnología', 'm²', 'Chasis', 'Gama', 'PVP', 'Costo presupuestado', 'Costo real', 'Desvío', 'Honorarios', 'Marketing', 'Ganancia', 'Reserva', 'Div. ' + nombreSocio('A'), 'Div. ' + nombreSocio('B'), 'Cobro'],
+    S.datos.ventas.map(v => [v.numero, v.fecha, v.cliente, v.generacion, v.producto_codigo, v.tecnologia, v.superficie_m2 ?? E.M2_LEGADO[v.chasis], v.chasis, v.gama, v.pvp, v.cd_pres, v.costo_real, v.desvio, v.hon, v.mkt, v.ganancia, v.reserva, v.div_a, v.div_b, v.estado_cobro])),
   insumos: () => csv(`computo_${hoyISO()}.csv`, ['Código', 'Categoría', 'Descripción', 'Unidad', 'Costo', 'Merma', 'Cant. S', 'Cant. M', 'Costo S', 'Costo M', 'Stock', 'Reorden'],
     S.datos.insumos.map(i => [i.codigo, i.categoria, i.descripcion, i.unidad, i.costo, i.merma, i.cant_s, i.cant_m, E.costoLinea(i, 'S').toFixed(2), E.costoLinea(i, 'M').toFixed(2), i.stock, E.puntoReorden(i).toFixed(2)])),
   gastos: () => csv(`gastos_${hoyISO()}.csv`, ['N.º', 'Fecha', 'Concepto', 'Categoría', 'Monto', 'Solicitó', 'Firma A', 'Firma B', 'Urgencia', 'Estado', 'Imputado'],
     S.datos.gastos.map(g => [g.numero, g.fecha, g.concepto, g.categoria, g.monto, g.nombre_solicitante, g.aprob_a ? 'Sí' : 'No', g.aprob_b ? 'Sí' : 'No', g.urgencia ? 'Sí' : 'No', g.estado, g.imputado ? 'Sí' : 'No'])),
+  productos: () => csv(`catalogo_2_0_${hoyISO()}.csv`, ['Código', 'Tecnología', 'Tamaño', 'Gama', 'm²', 'Estado comercial', 'Aprobación técnica', 'BOM vigente'],
+    S.datos.productos.map(p => [p.codigo, p.tecnologia, p.tamano, p.gama, p.superficie_m2, p.estado_comercial, p.aprobacion_tecnica, E.vigenteDe(p.id, S.datos)?.version ?? ''])),
+  bom: () => csv(`bom_${hoyISO()}.csv`, ['Modelo', 'Versión', 'Estado', 'Vigente', 'Código', 'Descripción', 'Unidad', 'Cantidad', 'Merma', 'Costo unit. USD', 'Subtotal USD'],
+    S.datos.boms.flatMap(b => E.itemsBom(b.id, S.datos).map(i => [S.datos.productos.find(p => p.id === b.producto_id)?.codigo, b.version, b.estado, b.vigente ? 'Sí' : 'No',
+      i.codigo, i.descripcion, i.unidad, i.cantidad, i.merma, i.costo ?? 'Pendiente', i.costo === null ? '' : (i.costo * i.cantidad * (1 + Number(i.merma))).toFixed(2)]))),
+  presupuestos: () => csv(`presupuestos_${hoyISO()}.csv`, ['N.º', 'Revisión', 'Estado', 'Cliente', 'Modelo', 'TC', 'Origen', 'Código', 'Descripción', 'Cantidad', 'Merma', 'Precio original', 'Moneda', 'Unit. USD', 'Motivo'],
+    S.datos.presupuestos.flatMap(p => S.datos.presupuesto_items.filter(x => x.presupuesto_id === p.id).map(x => [p.numero, p.revision, p.estado, p.cliente,
+      S.datos.productos.find(z => z.id === p.producto_id)?.codigo, p.tc_valor, x.origen, x.insumo_codigo, x.descripcion, x.cantidad, x.merma, x.costo_original ?? 'Pendiente', x.moneda, x.costo_unit_usd, x.motivo]))),
+  precios: () => csv(`historial_precios_${hoyISO()}.csv`, ['Fecha', 'Material', 'Antes USD', 'Ahora USD', 'Original antes', 'Original ahora', 'Moneda', 'TC', 'Usuario', 'Motivo'],
+    S.datos.precios_historial.map(h => [h.fecha, h.insumo_codigo, h.costo_usd_ant, h.costo_usd_nuevo, h.original_ant, h.original_nuevo, h.moneda_nueva, h.tc_valor, nombreUsuario(h.usuario), h.motivo])),
   horas: () => csv(`horas_${hoyISO()}.csv`, ['Fecha', 'Operario', 'Orden', 'Horas', 'Costo/hora', 'Costo'],
     S.datos.horas.map(h => {
       const o = S.datos.operarios.find(x => x.id === h.operario_id), f = S.datos.fabricacion.find(x => x.id === h.fabricacion_id);
@@ -202,7 +222,7 @@ const EXPORTES = {
 // ---------------------------------------------------------------------
 const guardar = (msg, fn) => async v => { await fn(v); toast(msg); await bus.refrescar(); };
 const soloVenta = v => ({ cliente: v.cliente, fecha: v.fecha, chasis: v.chasis, gama: v.gama, pvp: v.pvp,
-  costo_real: v.costo_real, estado_cobro: v.estado_cobro, fecha_cobro: v.fecha_cobro || null });
+  costo_real: v.costo_real, estado_cobro: v.estado_cobro, fecha_cobro: v.fecha_cobro || null, producto_id: v.producto_id || null });
 
 export const acciones = {
   'venta-nueva': () => formulario('Registrar venta', camposVenta(), { fecha: hoyISO(), chasis: 'S', gama: S.datos.gamas[0]?.nombre, estado_cobro: 'Seña recibida' },
@@ -246,7 +266,7 @@ export const acciones = {
       { k: 'p_costo', l: 'Costo directo (%)', t: 'number', pct: true, req: true, min: 30, maxN: 80, step: '0.1' },
       { k: 'p_hon', l: 'Honorarios de arquitectura (%)', t: 'number', pct: true, req: true, min: 0, maxN: 25, step: '0.1' },
       { k: 'p_mkt', l: 'Presupuesto digital y comercial (%)', t: 'number', pct: true, req: true, min: 0, maxN: 25, step: '0.1' },
-      { k: 'p_margen', l: 'Ganancia neta de la sociedad (%)', t: 'number', pct: true, req: true, min: 0, maxN: 50, step: '0.1', ayuda: 'Los cuatro deben sumar exactamente 100 %.' },
+      { k: 'p_margen', l: 'Margen societario objetivo (%)', t: 'number', pct: true, req: true, min: 0, maxN: 50, step: '0.1', ayuda: 'Los cuatro deben sumar exactamente 100 %.' },
       { k: 'p_reserva', l: 'Fondo de reserva (% de la ganancia)', t: 'number', pct: true, req: true, min: 0, maxN: 100, step: '0.1' },
       { k: 'p_div_socio', l: `Dividendo para ${nombreSocio('A')} (% de la masa)`, t: 'number', pct: true, req: true, min: 0, maxN: 100, step: '0.1' },
       { k: 'nombre_empresa', l: 'Nombre de la empresa', req: true, max: 60, ancho: true }

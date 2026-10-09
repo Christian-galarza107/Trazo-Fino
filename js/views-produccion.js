@@ -12,6 +12,17 @@ const UNIDADES = ['m', 'm²', 'm³', 'kg', 'un', 'lt', 'gl', 'jornal', 'hora', '
 const OFICIOS = ['Herrero', 'Armador', 'Oficial', 'Ayudante', 'Aplicador'];
 const PLAZO_MAX = 60;
 const sano = v => v >= E.RANGO_COSTO_M2[0] && v <= E.RANGO_COSTO_M2[1];
+/** Costo directo real sugerido: presupuestado de la venta − mano de obra presupuestada + mano de obra real. */
+const sugerido = (venta, f) => Number(venta.cd_pres) - Number(f.mdo_presupuestada) + Number(f.mdo_real);
+function necesidades(f) {
+  const n = E.necesidadesOF(f, S.datos);
+  if (!n.length) return '';
+  const faltan = n.filter(x => x.faltante > 0);
+  return html`<h4 class="mt">Materiales del BOM v${f.bom_version} ${faltan.length ? pill(faltan.length + ' con faltante', 'p-warn') : pill('Stock suficiente', 'p-ok')}</h4>
+    <table class="inner"><thead><tr><th>Material</th><th class="num">Necesario</th><th class="num">Stock</th><th class="num">Faltante</th></tr></thead>
+    <tbody>${n.map(x => html`<tr><td><code>${x.codigo}</code> ${x.descripcion}</td><td class="num">${n2(x.necesario)} ${x.unidad}</td><td class="num">${n2(x.stock)}</td>
+      <td class="num">${x.faltante ? pill(n2(x.faltante), 'p-warn') : '—'}</td></tr>`)}</tbody></table>`;
+}
 const provNombre = id => S.datos.proveedores.find(p => p.id === id)?.nombre || '—';
 
 // ---------------------------------------------------------------------
@@ -30,12 +41,15 @@ const camposInsumo = nuevo => [
 ];
 
 export function vComputo() {
-  const D = S.datos;
+  const D = { ...S.datos, insumos: S.datos.insumos.filter(i => Number(i.cant_s) > 0 || Number(i.cant_m) > 0 || i.categoria === 'Hierro') };
+  const otros = S.datos.insumos.length - D.insumos.length;
   const cS = E.costoBase(D.insumos, 'S'), cM = E.costoBase(D.insumos, 'M');
   const catS = E.costoPorCategoria(D.insumos, 'S'), catM = E.costoPorCategoria(D.insumos, 'M');
   const ref = D.refs[0], v = E.variacionBom(D.insumos, ref);
   return html`
-    ${head('Cómputo métrico', 'Cada insumo con su costo, su merma y la cantidad que lleva cada chasis. La mano de obra directa también es parte del costo.',
+    <div class="warnbox"><b>Catálogo 1.0 (histórico):</b> chasis de hierro S 18 m² y M 36 m². Se conserva para consultar y reimprimir lo emitido antes de 2.0 y para las órdenes 1.0.
+      Los 12 modelos 2.0 se costean en <button class="linkbtn dark" data-action="ir" data-v="bom">BOM por modelo</button>.${otros ? ` ${otros} materiales del catálogo no participan de este cómputo.` : ''}</div>
+    ${head('Cómputo 1.0 (histórico)', 'Cada insumo con su costo, su merma y la cantidad que lleva cada chasis 1.0. La mano de obra directa también es parte del costo.',
       html`<button class="btn" data-action="bom-referencia">Registrar como referencia</button>
            <button class="btn primary" data-action="insumo-nuevo">Agregar insumo</button>`)}
     <div class="kpis">
@@ -61,7 +75,7 @@ export function vComputo() {
           <th class="num">Cant. S</th><th class="num">Cant. M</th><th class="num">Costo S</th><th class="num">Costo M</th><th></th></tr></thead>
         <tbody>${D.insumos.map(i => html`<tr>
           <td><code>${i.codigo}</code></td><td>${i.categoria}</td><td>${i.descripcion}</td><td>${i.unidad}</td>
-          <td class="num">${usd2(i.costo)}</td><td class="num">${pct(i.merma)}</td><td class="num">${n2(i.cant_s)}</td><td class="num">${n2(i.cant_m)}</td>
+          <td class="num">${i.costo === null ? pill('Pendiente', 'p-warn') : usd2(i.costo)}</td><td class="num">${pct(i.merma)}</td><td class="num">${n2(i.cant_s)}</td><td class="num">${n2(i.cant_m)}</td>
           <td class="num">${usd(E.costoLinea(i, 'S'))}</td><td class="num">${usd(E.costoLinea(i, 'M'))}</td>
           <td class="num nowrap"><button class="btn sm" data-action="insumo-editar" data-id="${i.codigo}">Editar</button>
             <button class="btn sm ghost" data-action="insumo-borrar" data-id="${i.codigo}">Borrar</button></td></tr>`)}</tbody>
@@ -77,18 +91,18 @@ export function vGamas() {
   const D = S.datos, p = D.params;
   const cS = E.costoBase(D.insumos, 'S'), cM = E.costoBase(D.insumos, 'M');
   return html`
-    ${head('Gamas y adicionales', 'El coeficiente multiplica el costo directo del chasis base. Calibralo contra el cómputo real del primer prototipo.',
+    ${head('Gamas y adicionales', 'Gamas comerciales de ambas generaciones. El coeficiente y el rango USD/m² solo se usan en el catálogo 1.0 (chasis 18/36 m²); en 2.0 cada modelo tiene su propio BOM. Los nombres no se cambian: los usan cotizaciones y ventas históricas.',
       html`<button class="btn" data-action="gama-nueva">Agregar gama</button><button class="btn primary" data-action="addon-nuevo">Agregar adicional</button>`)}
     <div class="panel"><h3>Líneas comerciales</h3><div class="body tight"><table>
-      <thead><tr><th>Gama</th><th class="num">Coeficiente</th><th class="num">Rango USD/m²</th><th class="num">PVP/m² · S</th><th class="num">PVP/m² · M</th><th></th></tr></thead>
+      <thead><tr><th>Gama</th><th>Generación</th><th class="num">Coeficiente 1.0</th><th class="num">Rango USD/m²</th><th class="num">PVP/m² · S</th><th class="num">PVP/m² · M</th><th></th></tr></thead>
       <tbody>${D.gamas.map(g => {
         const pS = cS * g.coef / p.p_costo / 18, pM = cM * g.coef / p.p_costo / 36;
         const ok = x => x >= g.usd_m2_min && x <= g.usd_m2_max;
-        return html`<tr><td><b>${g.nombre}</b></td><td class="num">×${n2(g.coef)}</td><td class="num">${usd(g.usd_m2_min)} – ${usd(g.usd_m2_max)}</td>
+        return html`<tr><td><b>${g.nombre}</b> ${g.vigente === false ? pill('Histórica') : ''}</td><td>${g.generacion || '1.0'}</td><td class="num">${g.generacion === '2.0' ? '—' : '×' + n2(g.coef)}</td><td class="num">${usd(g.usd_m2_min)} – ${usd(g.usd_m2_max)}</td>
           <td class="num">${pill(usd(pS), ok(pS) ? 'p-ok' : 'p-warn')}</td><td class="num">${pill(usd(pM), ok(pM) ? 'p-ok' : 'p-warn')}</td>
           <td class="num nowrap"><button class="btn sm" data-action="gama-editar" data-id="${g.nombre}">Editar</button></td></tr>`;
       })}</tbody></table></div></div>
-    <div class="panel"><h3>Adicionales</h3><div class="body tight"><table>
+    <div class="panel"><h3>Adicionales <span class="tag">costos S/M del catálogo 1.0 · los costos 2.0 por tecnología y tamaño están en Catálogo de productos</span></h3><div class="body tight"><table>
       <thead><tr><th>Adicional</th><th class="num">Costo directo S</th><th class="num">Costo directo M</th><th class="num">Suma al PVP · S</th><th class="num">Suma al PVP · M</th><th></th></tr></thead>
       <tbody>${D.addons.map(a => html`<tr><td>${a.nombre}</td><td class="num">${usd(a.costo_s)}</td><td class="num">${usd(a.costo_m)}</td>
         <td class="num">${usd(a.costo_s / p.p_costo)}</td><td class="num">${usd(a.costo_m / p.p_costo)}</td>
@@ -117,15 +131,22 @@ export function vStock() {
   const D = S.datos;
   const mats = D.insumos.filter(i => i.categoria !== 'Mano de Obra');
   const bajos = mats.filter(E.stockBajo);
-  const valor = mats.reduce((a, i) => a + Number(i.stock) * Number(i.costo), 0);
+  const valor = mats.reduce((a, i) => a + Number(i.stock) * Number(i.costo || 0), 0);
+  const comp = E.stockComprometido(D);
   return html`
-    ${head('Stock de taller', 'El punto de reorden es lo necesario para fabricar un Chasis M completo, merma incluida.',
+    ${head('Stock de taller', 'Stock físico por material, lo comprometido por las órdenes 2.0 y el punto de reorden del catálogo 1.0.',
       bajos.length ? html`<button class="btn primary" data-action="oc-faltantes">Crear orden con faltantes</button>` : '')}
     <div class="kpis">
       ${kpi('Valor del stock', usd(valor), `${mats.length} insumos de material`)}
       ${kpi('Bajo punto de reorden', bajos.length, bajos.length ? 'no alcanza para un Chasis M' : 'alcanza para un Chasis M', bajos.length ? 'warn' : 'good')}
     </div>
-    <div class="panel"><div class="body tight"><div class="scroll"><table>
+    ${comp.length ? html`<div class="panel"><h3>Comprometido por órdenes de fabricación 2.0 <span class="tag">según el BOM aprobado de cada orden</span></h3><div class="body tight"><table>
+      <thead><tr><th>Material</th><th class="num">Órdenes</th><th class="num">Comprometido</th><th class="num">Stock</th><th class="num">Faltante</th><th class="num">Costo a abastecer</th></tr></thead>
+      <tbody>${comp.map(x => html`<tr><td><code>${x.codigo}</code> ${x.descripcion}</td><td class="num">${x.ordenes}</td><td class="num">${n2(x.comprometido)} ${x.unidad}</td>
+        <td class="num">${n2(x.stock)}</td><td class="num">${x.faltante ? pill(n2(x.faltante), 'p-warn') : '—'}</td>
+        <td class="num">${x.faltante ? (x.costoFaltante === null ? pill('Sin precio', 'p-warn') : usd(x.costoFaltante)) : '—'}</td></tr>`)}</tbody></table>
+      ${comp.some(x => x.faltante) ? html`<div class="body"><button class="btn sm primary" data-action="oc-faltantes-2">Crear orden con faltantes 2.0</button></div>` : ''}</div></div>` : ''}
+    <div class="panel"><h3>Stock por material <span class="tag">punto de reorden 1.0: lo necesario para un Chasis M</span></h3><div class="body tight"><div class="scroll"><table>
       <thead><tr><th>Código</th><th>Descripción</th><th>Proveedor</th><th class="num">Stock</th><th class="num">Reorden (1 M)</th><th class="num">Faltante</th><th>Estado</th><th></th></tr></thead>
       <tbody>${mats.map(i => {
         const ro = E.puntoReorden(i), falta = Math.max(0, ro - Number(i.stock));
@@ -217,7 +238,8 @@ export function vFabricacion() {
           const abierta = S.fabAbierta === f.id, horas = D.horas.filter(h => h.fabricacion_id === f.id);
           const desv = Number(f.mdo_real) - Number(f.mdo_presupuestada);
           return html`<tr class="clic ${abierta ? 'open' : ''}" data-action="fab-toggle" data-id="${f.id}">
-            <td>${f.numero}</td><td>${venta ? venta.cliente : html`<span class="mute">Stock</span>`}</td><td>${f.chasis} · ${f.gama}</td>
+            <td>${f.numero}</td><td>${venta ? venta.cliente : html`<span class="mute">Stock</span>`}</td>
+            <td>${f.producto_codigo ? html`${f.producto_codigo}<br><span class="small mute">BOM v${f.bom_version}</span>` : html`${f.chasis} · ${f.gama} ${pill('1.0', 'p-neutral')}`}</td>
             <td>${pill(f.estado, f.estado === 'Terminada' ? 'p-ok' : f.estado === 'En curso' ? 'p-info' : 'p-neutral')}</td>
             <td class="num">${dias === null ? '—' : dias > PLAZO_MAX ? pill(dias, 'p-bad') : dias}</td>
             <td class="num">${n2(f.horas_total)}</td><td class="num">${usd(f.mdo_real)}</td><td class="num">${usd(f.mdo_presupuestada)}</td>
@@ -241,8 +263,10 @@ export function vFabricacion() {
                 <tr><td>Mano de obra presupuestada</td><td class="num">${usd(f.mdo_presupuestada)}</td></tr>
                 <tr><td>Mano de obra real</td><td class="num">${usd(f.mdo_real)}</td></tr>
                 <tr><td>Desvío</td><td class="num ${desv > 0 ? 'bad' : 'ok'}">${desv > 0 ? '+' : ''}${usd(desv)}</td></tr>
-                ${venta ? html`<tr><td>Costo real sugerido para la venta</td><td class="num"><b>${usd(E.costoRealSugerido(venta.pvp, D.params, f.mdo_presupuestada, f.mdo_real))}</b></td></tr>` : ''}
+                ${f.bom_id ? html`<tr><td>Materiales presupuestados</td><td class="num">${usd(f.costo_mat_pres)}</td></tr>` : ''}
+                ${venta ? html`<tr><td>Costo real sugerido para la venta</td><td class="num"><b>${usd(sugerido(venta, f))}</b></td></tr>` : ''}
               </table>
+              ${necesidades(f)}
               ${venta ? html`<button class="btn sm full mt" data-action="fab-aplicar-costo" data-id="${f.id}">Aplicar costo real sugerido a la venta</button>
                 <p class="hint">Reemplaza la mano de obra presupuestada por la real. Si hubo desvíos de materiales, cargá el costo real a mano en Ventas.</p>` : ''}
               ${!f.materiales_descontados ? html`<button class="btn sm full mt" data-action="fab-descontar" data-id="${f.id}">Descontar materiales del stock</button>` : ''}
@@ -305,7 +329,7 @@ export const acciones = {
     guardar('Gama agregada', v => db.insertar('gamas', v))),
   'gama-editar': d => {
     const g = S.datos.gamas.find(x => x.nombre === d.id); if (!g) return;
-    formulario('Editar gama', camposGama, g, guardar('Gama actualizada', v => db.actualizar('gamas', 'nombre', g.nombre, v)));
+    formulario(`Editar gama ${g.nombre}`, camposGama.filter(c => c.k !== 'nombre'), g, guardar('Gama actualizada', v => db.actualizar('gamas', 'nombre', g.nombre, v)));
   },
   'addon-nuevo': () => formulario('Agregar adicional', camposAddon, {}, guardar('Adicional agregado', v => db.insertar('addons', v))),
   'addon-editar': d => {
@@ -328,8 +352,20 @@ export const acciones = {
     ], {}, guardar('Orden creada en borrador', async v => {
       const oc = await db.insertar('ordenes_compra', v);
       for (const i of D.insumos.filter(E.stockBajo)) {
-        await db.insertar('oc_items', { oc_id: oc.id, insumo_codigo: i.codigo, cantidad: Math.ceil((E.puntoReorden(i) - Number(i.stock)) * 100) / 100, costo_unit: i.costo });
+        await db.insertar('oc_items', { oc_id: oc.id, insumo_codigo: i.codigo, cantidad: Math.ceil((E.puntoReorden(i) - Number(i.stock)) * 100) / 100, costo_unit: i.costo ?? 0 });
       }
+      S.ocAbierta = oc.id; bus.ir('compras');
+    }), 'Crear orden');
+  },
+  'oc-faltantes-2': () => {
+    const D = S.datos, falt = E.stockComprometido(D).filter(x => x.faltante > 0);
+    if (!D.proveedores.length) { toast('Primero cargá un proveedor', 'warn'); return; }
+    formulario('Orden de compra con faltantes de órdenes 2.0', [
+      { k: 'proveedor_id', l: 'Proveedor', t: 'select', req: true, opts: D.proveedores.map(p => [p.id, p.nombre]), ancho: true },
+      { k: 'notas', l: 'Notas', t: 'textarea', max: 500, ancho: true, ayuda: 'Los materiales sin precio se cargan con costo 0 en la orden: completalo con el precio del proveedor antes de enviarla.' }
+    ], { notas: 'Faltantes para órdenes de fabricación 2.0' }, guardar('Orden creada en borrador', async v => {
+      const oc = await db.insertar('ordenes_compra', v);
+      for (const x of falt) await db.insertar('oc_items', { oc_id: oc.id, insumo_codigo: x.codigo, cantidad: Math.ceil(x.faltante * 100) / 100, costo_unit: x.costo ?? 0 });
       S.ocAbierta = oc.id; bus.ir('compras');
     }), 'Crear orden');
   },
@@ -373,26 +409,31 @@ export const acciones = {
   'fab-nueva': () => {
     const D = S.datos, conOF = new Set(D.fabricacion.map(f => f.venta_id).filter(Boolean));
     const libres = D.ventas.filter(v => !conOF.has(v.id));
+    const aptos = (D.productos || []).filter(p => E.vigenteDe(p.id, D));
     formulario('Nueva orden de fabricación', [
-      { k: 'venta_id', l: 'Venta asociada', t: 'select', opts: [['', '— Para stock, sin venta —'], ...libres.map(v => [v.id, `${v.cliente} · ${v.chasis} ${v.gama}`])], ancho: true, ayuda: 'Si elegís una venta, el chasis y la gama se toman de ella.' },
-      { k: 'chasis', l: 'Chasis', t: 'select', opts: ['S', 'M'] },
-      { k: 'gama', l: 'Gama', t: 'select', opts: D.gamas.map(g => g.nombre) },
+      { k: 'venta_id', l: 'Venta asociada', t: 'select', opts: [['', '— Para stock, sin venta —'], ...libres.map(v => [v.id, `${v.cliente} · ${v.producto_codigo || `${v.chasis} ${v.gama} (1.0)`}`])], ancho: true,
+        ayuda: 'Si la venta es 2.0, el modelo y el BOM aprobado se toman de ella.' },
+      { k: 'producto_id', l: 'Modelo (órdenes para stock)', t: 'select', ancho: true, opts: [['', '— Elegí un modelo con BOM aprobado —'], ...aptos.map(p => [p.id, `${p.codigo} · BOM v${E.vigenteDe(p.id, D).version}`])] },
       { k: 'notas', l: 'Notas', t: 'textarea', max: 500, ancho: true }
-    ], { chasis: 'S', gama: D.gamas[0]?.nombre }, guardar('Orden de fabricación creada', v => {
-      const venta = D.ventas.find(x => x.id === v.venta_id);
-      return db.insertar('fabricacion', { ...v, venta_id: v.venta_id || null, chasis: venta ? venta.chasis : v.chasis, gama: venta ? venta.gama : v.gama });
+    ], {}, guardar('Orden de fabricación creada', v => {
+      const venta = D.ventas.find(x => x.id === v.venta_id), pr = D.productos.find(p => p.id === v.producto_id);
+      if (!venta && !pr) throw Object.assign(new Error('Elegí una venta o un modelo con BOM aprobado.'), { code: 'P0001' });
+      const base = venta || { chasis: pr.tamano, gama: pr.gama };
+      return db.insertar('fabricacion', { venta_id: venta?.id || null, producto_id: venta ? null : pr.id, chasis: base.chasis, gama: base.gama, notas: v.notas });
     }));
   },
   'fab-iniciar': conError(async d => { await db.actualizar('fabricacion', 'id', d.id, { estado: 'En curso', fecha_inicio: hoyISO() }); toast('Fabricación iniciada'); await bus.refrescar(); }),
   'fab-terminar': conError(async d => { await db.actualizar('fabricacion', 'id', d.id, { estado: 'Terminada', fecha_fin: hoyISO() }); toast('Fabricación terminada'); await bus.refrescar(); }),
   'fab-borrar': borrarCon('Se elimina la orden de fabricación y sus horas. El stock ya descontado no se repone.', 'fabricacion', 'id'),
-  'fab-descontar': d => confirmar('Se descuentan del stock los materiales del chasis base, merma incluida. Si falta algún insumo, no se descuenta nada.', async () => {
+  'fab-descontar': d => confirmar(S.datos.fabricacion.find(f => f.id === d.id)?.bom_id
+    ? 'Se descuentan del stock los materiales del BOM aprobado de esta orden, merma incluida. Si falta alguno, no se descuenta nada.'
+    : 'Orden 1.0: se descuentan del stock los materiales del chasis base, merma incluida. Si falta algún insumo, no se descuenta nada.', async () => {
     await db.rpc.descontarMateriales(d.id); toast('Materiales descontados'); await bus.refrescar();
   }, 'Descontar'),
   'fab-aplicar-costo': d => {
     const D = S.datos, f = D.fabricacion.find(x => x.id === d.id), venta = f && D.ventas.find(v => v.id === f.venta_id);
     if (!venta) return;
-    const sug = Math.round(E.costoRealSugerido(venta.pvp, D.params, f.mdo_presupuestada, f.mdo_real) * 100) / 100;
+    const sug = Math.round(sugerido(venta, f) * 100) / 100;
     confirmar(`Se carga ${usd2(sug)} como costo directo real de la venta a ${venta.cliente}. La ganancia y los dividendos se recalculan.`, async () => {
       await db.actualizar('ventas', 'id', venta.id, { costo_real: sug }); toast('Costo real aplicado'); await bus.refrescar();
     }, 'Aplicar');
