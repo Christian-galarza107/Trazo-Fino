@@ -103,3 +103,12 @@ El riesgo de esa decisión es que un ataque XSS podría leer el token. Por eso s
 ## Reportar un problema
 
 Si detectás un comportamiento sospechoso: cambiá tu contraseña, cerrá todas las sesiones desde Supabase (**Authentication → Users → tu usuario**) y revisá la sección **Auditoría** del sistema.
+
+## Trazo Fino 2.0
+
+- Las 10 tablas nuevas tienen RLS activada y forzada **en la misma transacción que las crea**, con el rol anónimo sin permisos desde ese momento; las políticas para socios se definen explícitamente (migración 04).
+- Lo que calcula el servidor no se puede escribir desde el navegador: costo en USD/ARS de los materiales (trigger), precio de las cotizaciones 2.0 y su instantánea, costo presupuestado de ventas y órdenes (permisos por columna), estado de BOM, presupuestos y sustituciones (solo por funciones).
+- Las operaciones que no deben duplicarse (emitir cotización, crear presupuesto, agregar material) aceptan una clave de idempotencia: un reintento devuelve el mismo registro.
+- La opción "guardar también en catálogo" crea el material y la partida en una única transacción.
+- Todas las funciones nuevas verifican `es_socio()` y usan `set search_path = public`.
+- *Verificación:* `tests/migracion.test.mjs` (anónimo, autenticado no socio, socios A y B, RLS forzada en todas las tablas, ningún permiso de `anon`, Realtime) y `supabase/migrations/validar_2_0.sql` en producción.

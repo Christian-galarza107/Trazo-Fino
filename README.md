@@ -1,6 +1,8 @@
 # Trazo Fino · Sistema de gestión
 
-Sistema web privado para la línea de módulos en seco de Trazo Fino: CRM, cotizador, cómputo de materiales, stock y compras, taller, finanzas y gobernanza societaria. Lo usan solo los dos socios.
+Sistema web privado de Trazo Fino para unidades habitacionales modulares en seco: CRM, cotizador, ingeniería de costos y materiales, stock y compras, taller, finanzas y gobernanza societaria. Lo usan solo los dos socios.
+
+**Versión 2.0:** catálogo Wood / Iron Steel × S (24 m²) / M (48 m²) × Básico / Premium / Signature, con BOM por modelo, precios en ARS/USD y presupuestos por proyecto. Detalle en [docs/TRAZO_FINO_2_0.md](docs/TRAZO_FINO_2_0.md).
 
 ## Cómo está armado
 
@@ -34,7 +36,9 @@ Cómo se cumple cada regla de seguridad está explicado en [SECURITY.md](SECURIT
 2. Copiar y pegar **todo** el contenido de `supabase/schema.sql`.
 3. **Run**. Tiene que terminar con *Success. No rows returned*.
 
-Esto crea 18 tablas, las reglas de validación, la seguridad por fila y el catálogo inicial: reglas de precio 52/9/9/30, las tres gamas, los adicionales y los insumos de referencia.
+Esto crea 18 tablas, las reglas de validación, la seguridad por fila y el catálogo 1.0: reglas de precio 52/9/9/30, las tres gamas, los adicionales y los insumos de referencia.
+
+4. Aplicar, en orden y de a uno, los archivos `supabase/migrations/20261008_01…05_*.sql` (catálogo 2.0). En una base **que ya está en uso** no se vuelve a ejecutar `schema.sql`: se siguen los pasos de [supabase/migrations/README.md](supabase/migrations/README.md), con respaldo previo.
 
 ### Paso 3 · Cerrar el registro público
 
@@ -104,14 +108,21 @@ Para frenar robots que prueben contraseñas:
 
 ## Respaldos
 
-Supabase guarda respaldos automáticos de la base (la frecuencia depende del plan). Además, **Exportar datos** descarga planillas CSV para Excel y una copia completa en JSON.
+El plan gratuito de Supabase **no garantiza respaldos automáticos**. Hacer copias propias con regularidad: **Exportar datos** (CSV y JSON completo) y, antes de cualquier migración, un `pg_dump` (ver `supabase/migrations/README.md`). Guardarlas fuera de Supabase.
+
+## Publicar una versión nueva y revertirla
+
+1. Revisar los cambios de la rama (`git diff main...trazo-fino-2.0`) y correr `npm test`.
+2. Si hay migraciones, aplicarlas y validarlas **antes** de publicar el frontend.
+3. Fusionar la rama en `main` (GitHub Pages publica `main`). **No subir `js/config.js` del ZIP**: el real está solo en GitHub.
+4. Revertir el frontend: en GitHub, *Revert* del commit de fusión (o `git revert -m 1 <commit>` y `git push`). Pages vuelve a publicar la versión anterior en uno o dos minutos.
 
 ## Mantenimiento de dependencias
 
 El proyecto tiene una sola dependencia que llega al navegador: la librería oficial de Supabase, fijada en `package.json` y copiada en `js/vendor/`.
 
 - **Dependabot** revisa todas las semanas si hay versiones nuevas o problemas de seguridad y abre un *pull request* automático.
-- **La integración continua** (`.github/workflows/ci.yml`) corre las 59 pruebas y la auditoría de seguridad en cada cambio.
+- **La integración continua** (`.github/workflows/ci.yml`) corre las 100 pruebas y la auditoría de seguridad en cada cambio.
 
 Cuando Dependabot proponga actualizar `@supabase/supabase-js`, la prueba va a fallar a propósito hasta que se regenere la copia local:
 
@@ -136,8 +147,12 @@ js/html.js                  Plantillas con escape automático (anti-XSS)
 js/ui.js                    Formularios y avisos
 js/views-*.js               Pantallas por área
 js/vendor/supabase.js       Librería oficial, copia local fijada
-supabase/schema.sql         Base de datos: tablas, validaciones, seguridad, catálogo
-tests/                      59 pruebas automáticas
+js/views-ingenieria.js      Ingeniería de costos: materiales, BOM, presupuestos, comparador, precios
+js/views-catalogo.js        Catálogo de productos 2.0 y análisis por línea
+supabase/schema.sql         Base de datos 1.0 (instalación inicial; no se re-ejecuta)
+supabase/migrations/        Migraciones 2.0 versionadas, validación y reversión
+docs/                       Informe 2.0 y memoria del proyecto
+tests/                      100 pruebas automáticas
 scripts/vendor.mjs          Actualiza la copia local de la librería
 ```
 
@@ -150,9 +165,13 @@ npm install
 npm test
 ```
 
-Hay cuatro grupos de pruebas:
+Hay seis grupos de pruebas:
 
 - **engine**: la fórmula de precio y el reparto coinciden con el modelo Excel.
-- **schema**: la base real rechaza 16 ataques y violaciones de reglas.
-- **views**: las 16 pantallas muestran datos maliciosos sin ejecutarlos.
+- **schema**: el esquema 1.0 rechaza 16 ataques y violaciones de reglas.
+- **migracion**: las migraciones 2.0 no pierden ni cambian datos 1.0 y cumplen las reglas del catálogo, costos, presupuestos, producción y seguridad.
+- **reversion**: revertir deja el esquema idéntico al 1.0.
+- **views**: las 23 pantallas muestran datos maliciosos sin ejecutarlos.
 - **e2e**: la aplicación completa en un navegador simulado, del login al cierre de sesión.
+
+Las pruebas usan PostgreSQL real en WebAssembly (PGlite) y un cliente Supabase simulado: **no reemplazan una prueba contra un proyecto Supabase real** (staging).
