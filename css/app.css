@@ -214,6 +214,26 @@ table.inner th { background: var(--steel-soft); color: var(--ink); position: sta
 #toast.bad { background: var(--bad); } #toast.warn { background: #7A5700; }
 #print { display: none; }
 
+/* ---------- Trazo Fino 2.0: selectores, filtros, barras de herramientas ---------- */
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.opt { position: relative; display: flex; flex-direction: column; gap: 3px; text-align: left; padding: 11px 13px; border: 1px solid var(--line);
+  border-radius: 7px; background: var(--card); color: var(--ink); }
+.opt b { font-size: 15.5px; } .opt span { font-size: 12.5px; color: var(--mute); }
+.opt:hover { border-color: var(--steel); }
+.opt.on { border-color: var(--steel); background: var(--steel-soft); box-shadow: inset 0 0 0 1px var(--steel); }
+.tagsig { position: absolute; top: 7px; right: 8px; font-style: normal; font-size: 11px; font-weight: 700; color: var(--navy);
+  background: var(--gold); border-radius: 9px; padding: 0 7px; }
+.paso { display: grid; grid-template-columns: 30px 1fr; gap: 10px; margin-bottom: 14px; }
+.paso-n { width: 26px; height: 26px; border-radius: 50%; background: var(--line-soft); color: var(--mute); font-weight: 700;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.paso.hecho .paso-n { background: var(--steel); color: #fff; }
+.paso-c h4 { margin: 3px 0 8px; }
+.filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0 12px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); }
+.panel .body > .toolbar { padding: 0 0 10px; border-bottom: 0; }
+.excl ol { margin: 4px 0 6px; padding-left: 20px; } .excl p { margin: 2px 0; }
+.linkbtn.dark { color: var(--steel); font-size: inherit; }
+
 /* ---------- responsive ---------- */
 @media (max-width: 1000px) {
   #rail { position: fixed; left: 0; top: 0; z-index: 40; transform: translateX(-100%); transition: transform .2s ease; }
@@ -223,6 +243,7 @@ table.inner th { background: var(--steel-soft); color: var(--ink); position: sta
   .r2, .quote, .detail-grid, .grid2 { grid-template-columns: 1fr; }
   .span2 { grid-column: auto; }
   .bar-row, .pvr-row { grid-template-columns: 90px 1fr 80px; }
+  .opts { grid-template-columns: 1fr 1fr; } .filtros { grid-template-columns: 1fr 1fr; }
 }
 
 /* ---------- impresión de cotizaciones ---------- */
@@ -242,5 +263,6 @@ table.inner th { background: var(--steel-soft); color: var(--ink); position: sta
   .doc-t td:first-child { width: 42%; color: #444; }
   .doc-t tr.tot td { font-weight: 700; font-size: 13pt; border-bottom: 2px solid #12253F; }
   .doc-note, .doc-foot { font-size: 9pt; color: #555; }
+  .doc ol { margin: 4px 0 8px; padding-left: 20px; }
   @page { margin: 18mm; }
 }
